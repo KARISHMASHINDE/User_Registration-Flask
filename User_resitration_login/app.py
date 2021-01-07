@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_mysqldb import MySQL,MySQLdb #pip install flask-mysqldb https://github.com/alexferl/flask-mysqldb
 import bcrypt #pip install bcrypt https://pypi.org/project/bcrypt/
+
  
 app = Flask(__name__)
  
@@ -27,8 +28,40 @@ def register():
         hash_password = bcrypt.hashpw(password, bcrypt.gensalt())
  
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO users (name, email, password) VALUES (%s,%s,%s)",(name,email,hash_password,))
+        cur.execute("INSERT INTO UserDetails (Name, Email, Password) VALUES (%s,%s,%s)",(name,email,hash_password,))
         mysql.connection.commit()
         session['name'] = request.form['name']
         session['email'] = request.form['email']
         return redirect(url_for('home'))
+    
+    
+@app.route('/login',methods=["GET","POST"])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password'].encode('utf-8')
+ 
+        curl = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        curl.execute("SELECT * FROM UserDetails WHERE email=%s",(email,))
+        user = curl.fetchone()
+        curl.close()
+ 
+        if user != None and  len(user) > 0:
+            if bcrypt.hashpw(password, user["password"].encode('utf-8')) == user["password"].encode('utf-8'):
+                session['name'] = user['name']
+                session['email'] = user['email']
+                return render_template("home.html")
+            else:
+                return "Error password and email not match"
+        else:
+            return "Error user not found"
+    else:
+        return render_template("login.html")
+ 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return render_template("home.html")
+     
+if __name__ == '__main__':
+    app.run(debug=True)
